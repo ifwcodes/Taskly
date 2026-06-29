@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productivity Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body data-all-completed="{{ 'true' if all_completed else 'false' }}">
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="greeting" id="greeting">Good Morning</p>
+          <h1>Productivity dashboard</h1>
+          <p class="subtitle">A productive day starts with clarity and momentum.</p>
+        </div>
+        <div class="top-actions">
+          <div class="date-pill">
+            <span class="date-label">Today</span>
+            <strong id="todayDate">{{ today_date }}</strong>
+          </div>
+          <button id="themeToggle" type="button" class="theme-toggle">Dark Mode</button>
+        </div>
+      </header>
+
+      <main class="dashboard-grid">
+        <section class="panel metrics-panel">
+          <div class="metrics-row">
+            <article class="metric-card">
+              <p class="metric-label">Total tasks</p>
+              <strong>{{ total_tasks }}</strong>
+            </article>
+            <article class="metric-card">
+              <p class="metric-label">Completed</p>
+              <strong>{{ completed_tasks }}</strong>
+            </article>
+            <article class="metric-card">
+              <p class="metric-label">Pending</p>
+              <strong>{{ pending_tasks }}</strong>
+            </article>
+            <article class="metric-card accent">
+              <p class="metric-label">Completion</p>
+              <strong>{{ completion_percentage }}%</strong>
+            </article>
+          </div>
+          <div class="progress-bar-wrap" aria-label="progress">
+            <div class="progress-bar" style="width: {{ completion_percentage }}%;"></div>
+          </div>
+          <p class="progress-copy">Keep the streak going — finish today’s priorities.</p>
+          <p class="streak-copy"><strong id="streakCount">0</strong> day completion streak</p>
+        </section>
+
+        <section class="panel quote-panel">
+          <div class="panel-heading">
+            <h2>Motivation</h2>
+            <span>Stay inspired</span>
+          </div>
+          <blockquote id="quoteText">“The secret of getting ahead is getting started.”</blockquote>
+          <p class="quote-author" id="quoteAuthor">— Mark Twain</p>
+        </section>
+
+        <section class="panel activity-panel">
+          <div class="panel-heading">
+            <h2>Recent activity</h2>
+            <span>Latest updates</span>
+          </div>
+          {% if recent_activity %}
+            <ul class="activity-list">
+              {% for item in recent_activity %}
+                <li>
+                  <span>{{ item.task }}</span>
+                  <small>{{ item.created_at }}</small>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-copy">Start adding tasks to see your latest activity.</p>
+          {% endif %}
+        </section>
+
+        <section class="panel control-panel">
+          <div class="panel-heading">
+            <h2>Task controls</h2>
+            <span>Search and filters</span>
+          </div>
+          <form method="get" action="{{ url_for('home') }}" class="filter-form">
+            <div class="field-group"><label for="search">Search</label><input id="search" name="search" value="{{ search }}" placeholder="Search tasks"></div>
+            <div class="field-group"><label for="status">Status</label><select id="status" name="status"><option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option><option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option><option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option></select></div>
+            <div class="field-group"><label for="priority">Priority</label><select id="priority" name="priority"><option value="all" {% if priority_filter == 'all' %}selected{% endif %}>All</option><option value="High" {% if priority_filter == 'High' %}selected{% endif %}>High</option><option value="Medium" {% if priority_filter == 'Medium' %}selected{% endif %}>Medium</option><option value="Low" {% if priority_filter == 'Low' %}selected{% endif %}>Low</option></select></div>
+            <div class="field-group"><label for="category">Category</label><select id="category" name="category"><option value="all" {% if category_filter == 'all' %}selected{% endif %}>All</option>{% for category in categories %}<option value="{{ category }}" {% if category_filter == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></div>
+            <div class="filter-actions"><button type="submit">Apply</button><a class="clear-link" href="{{ url_for('home') }}">Reset</a></div>
+          </form>
+        </section>
+
+        <section class="panel add-panel">
+          <div class="panel-heading">
+            <h2>Add / edit task</h2>
+            <span>Create a new priority item</span>
+          </div>
+          <form action="{{ url_for('add') }}" method="post" class="add-task-form">
+            <label>Task description</label>
+            <textarea id="newTaskText" name="task" rows="2" maxlength="140" placeholder="Describe the task" required></textarea>
+            <div class="hint-row"><span id="charCount">0 / 140</span></div>
+            <div class="field-row">
+              <div class="field-group"><label for="priority">Priority</label><select name="priority"><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+              <div class="field-group"><label for="category">Category</label><input name="category" placeholder="Work, Home, Health"></div>
+              <div class="field-group"><label for="due_date">Due date</label><input type="date" name="due_date"></div>
+            </div>
+            <button type="submit" class="primary-btn">Add task</button>
+          </form>
+        </section>
+
+        <section class="panel tasks-panel">
+          <div class="panel-heading">
+            <h2>Task list</h2>
+            <span>Manage everything in one place</span>
+          </div>
+
+          {% if tasks %}
+            <ul class="task-list">
+              {% for task in tasks %}
+                {% set due_today = task.due_date and task.due_date == today_date %}
+                {% set overdue = task.due_date and task.due_date < today_date and not task.completed %}
+                <li class="task-card-item {% if task.completed %}completed{% endif %} {% if overdue %}overdue{% endif %}">
+                  <div class="task-card-main">
+                    <a class="checkbox-toggle" href="{{ url_for('toggle', id=task.id) }}" aria-label="Toggle completion">{{ '✅' if task.completed else '⬜' }}</a>
+                    <div class="task-copy">
+                      <div class="task-header">
+                        <h3>{{ task.task }}</h3>
+                        <div class="badges-row">
+                          <span class="badge priority {{ task.priority|lower }}">{{ task.priority }}</span>
+                          <span class="badge category">{{ task.category }}</span>
+                          {% if task.due_date %}
+                            <span class="badge due">Due {{ task.due_date }}</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <p class="task-meta">Created on {{ task.created_at.split(' ')[0] if task.created_at else 'N/A' }}{% if due_today %} · Due today{% endif %}</p>
+                    </div>
+                  </div>
+                  <div class="task-actions">
+                    <button type="button" class="edit-toggle">Edit</button>
+                    <a class="delete-link" href="{{ url_for('delete', id=task.id) }}">Delete</a>
+                  </div>
+                  <form action="{{ url_for('edit', id=task.id) }}" method="post" class="edit-form">
+                    <div class="field-row">
+                      <div class="field-group"><label>Task</label><input type="text" name="task" value="{{ task.task }}" required></div>
+                      <div class="field-group"><label>Priority</label><select name="priority"><option value="High" {% if task.priority == 'High' %}selected{% endif %}>High</option><option value="Medium" {% if task.priority == 'Medium' %}selected{% endif %}>Medium</option><option value="Low" {% if task.priority == 'Low' %}selected{% endif %}>Low</option></select></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field-group"><label>Category</label><input type="text" name="category" value="{{ task.category }}"></div>
+                      <div class="field-group"><label>Due date</label><input type="date" name="due_date" value="{{ task.due_date or '' }}"></div>
+                    </div>
+                    <div class="edit-actions"><button type="submit" class="secondary-btn">Save</button><button type="button" class="cancel-edit">Cancel</button></div>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="empty-state wide">
+              <div class="empty-icon">✨</div>
+              <h3>No tasks yet</h3>
+              <p>Create your first task to start tracking your productivity. Use the form above to add task details and set priority.</p>
+            </div>
+          {% endif %}
+        </section>
+      </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+    <template id="flashTemplate">
+      {% for message in get_flashed_messages() %}
+        <div class="toast-message">{{ message }}</div>
+      {% endfor %}
+    </template>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
